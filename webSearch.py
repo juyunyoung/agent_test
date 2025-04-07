@@ -7,7 +7,7 @@ import requests
 from datetime import datetime
 import arrow
 
-class WeatherTool:
+class WebSearchTool:
     load_dotenv()
     int_to_weather = {
         "0": "맑음",
@@ -20,7 +20,7 @@ class WeatherTool:
     }    
     def __new__(cls):
         if not hasattr(cls, 'instance'):
-            cls.instance = super(WeatherTool, cls).__new__(cls)
+            cls.instance = super(WebSearchTool, cls).__new__(cls)
         return cls.instance
     
     def __init__(self):

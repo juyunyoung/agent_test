@@ -1,6 +1,6 @@
 
 from langchain import PromptTemplate, LLMChain
-from langchain_openai import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from dbSearch import DBSearchManager
 from dotenv import load_dotenv
 import os
@@ -20,7 +20,7 @@ class ProjectSearchTool:
                 api_version = os.getenv("AZURE_OPENAI_API_VERSION"),
                 azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT_4O")
             )
-    
+        # self.llm = ChatOpenAI(model='gpt-4o')     
     def get_project_search(self, question:str ) -> str:
         '''
         사용자가 입력한 질문에  대하여 프로젝트와 관련된 전체적인 정보를 검색 할수 있는 함수 
