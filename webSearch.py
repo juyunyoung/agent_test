@@ -3,8 +3,6 @@ from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from dbSearch import DBSearchManager
 from dotenv import load_dotenv
 import os
-import requests
-
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 class WebSearchTool:
@@ -36,16 +34,27 @@ class WebSearchTool:
             print(f"project_info::{project_info}")                
             
 
-        keyword = self.llm.invoke(f"{project_info}의 주요 키워드만 단어로 추출해 주세요.")    
+        keyword = self.llm.invoke(f"{project_info}의 주요 키워드 3개를 선별하여  추출해 주세요.")    
         return self._regenerate_answer( keyword)
+
 
     def _regenerate_answer(self, keyword):
         print(f"keyword::", keyword)
         search = TavilySearchResults(k=5)
-        search_result = search.invoke("{keyword} 와 관련된 최신 뉴스를 검색해 주세요")        
-       
-        print(f"search_result::", search_result)
-        return search_result
+        tavily_result = search.invoke("{keyword}와 관련된 뉴스를 검색해 주세요")
+        print(f"tavily_result::{tavily_result}")
+        if tavily_result:
+            result = []
+            for item in tavily_result[0]:
+                result.append({
+                    "title": item.title,
+                    "url": item.url,
+                    "content": item.content
+                })
+            return result
+        else:   
+            return "인터넷 검색 결과가 없습니다."
+        
 
 
         
