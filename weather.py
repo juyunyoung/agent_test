@@ -59,8 +59,6 @@ class WeatherTool:
             lng = str(location["lng"])
 
         WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
-        print(f"lng:::{lng[0:lng.index('.')]}")
-        print(f"lat:::{lat[0:lat.index('.')]}")
 
         params ={'serviceKey' : WEATHER_API_KEY,                 
                 'numOfRows' : '10', 
@@ -77,7 +75,6 @@ class WeatherTool:
     def _get_current_date(self):        
         current_date = arrow.now('Asia/Seoul')        
         date_of_today = current_date.format("YYYYMMDD", locale="ko_kr")
-        #return current_date.strftime("%Y%m%d")
         return date_of_today
 
     def _get_current_hour(self):
@@ -90,17 +87,9 @@ class WeatherTool:
         url = 'http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst' # 단기예보
         
         # 값 요청 (웹 브라우저 서버에서 요청 - url주소와 파라미터)
-        response = requests.get(url, params=params)
-        print(f"response:::{response}")
+        response = requests.get(url, params=params)        
         data = response.json()
-        items = data['response']['body']['items']['item']
-        print(f"items:::{items}")
-        # #XML -> 딕셔너리
-        # weather_data = res.text
-        
-        # dict_data = xmltodict.parse(weather_data)
-        # print(f"dict_data:::{dict_data}")
-        
+        items = data['response']['body']['items']['item']        
         PCP = list(filter(lambda x: x['category'] == 'PCP' , items))[0]['fcstValue']#강수확율
         SKY = list(filter(lambda x: x['category'] == 'SKY' , items))[0]['fcstValue']#하늘 상태
         TMP = list(filter(lambda x: x['category'] == 'TMP' , items))[0]['fcstValue']#온도

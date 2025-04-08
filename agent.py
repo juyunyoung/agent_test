@@ -3,10 +3,10 @@ from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from weather import WeatherTool
 from projectSearch import ProjectSearchTool
 from managerEmail import ManagerMailTool
+from webSearch import WebSearchTool
 import os
 import pandas as pd
 from dotenv import load_dotenv
-from dbSearch import DBSearchManager
 from langchain.tools import tool
 from langchain.agents import AgentExecutor
 from langchain.agents import create_tool_calling_agent
@@ -38,8 +38,8 @@ def get_web_search( input_text:str ) -> str:
     :param input_text:  사용자가 입력한 질문내용
 
     """
-    mail_manager = ManagerMailTool()        
-    db_search_result = mail_manager.get_send_email(input_text= input_text)        
+    web_search_manager = WebSearchTool()        
+    db_search_result = web_search_manager.get_web_search(input_text= input_text)        
     return  db_search_result
 
 #사용자가 입력한 질문을 바탕으로  존재하는 주소의 날씨 정보를 검색합니다.
@@ -54,7 +54,7 @@ def get_weather_search( input_text:str ) -> str:
 
 def request_answer( question) -> str:
     weather_tool = Tool(
-        name="get_weather_searc",
+        name="get_weather_search",
         title="Weather Search",
         func=get_weather_search,
         description="사용자가 입력한 프로젝트명이 존재하는 위치의 현재 날씨 정보를 검색합니다."
@@ -63,11 +63,18 @@ def request_answer( question) -> str:
         name="get_project_search",
         title="Project Information Search",
         func=get_project_search,
-        description="사용자가 입력한 질문을 param으로 사용. 질문에 대하여 프로젝트 정보를 검색 할수 있는   "
+        description="사용자가 입력한 질문을 param으로 사용. 질문에 대하여 db를 검색하여 프로젝트 정보를 검색 할수 있는 툴"
+    )
+    web_search_tool = Tool(
+        name="get_web_search",
+        title="WEB search base on Project Information",
+        func=get_web_search,
+        description="사용자가 입력한 질문을 param으로 사용. 질문에 대하여 프로젝트 정보를 바탕으로 web에서 검색. 프로젝트 리턴값은  타이틀, URL 링크, 요약 정보를 제공한다."
     )
 
+
     tools=[weather_tool,    # 날씨 검색 도구 추가     
-           get_weather_search,    # 날씨 검색 도구 추가
+           web_search_tool,    # 날씨 검색 도구 추가
            project_search_tool, # 프로젝트 검색 도구 추가  
            ]
     #에이전트 초기화
@@ -86,7 +93,7 @@ def request_answer( question) -> str:
             (
                 "system",
                 "You are a helpful assistant. "
-                "agent 에서 제공하는 가능한한 많은 정보를 보여주세요. 대답은 반드시 한국어로만 해주세요. 답변을 요약하지 않아도 됩니다. 너무 오래 생각하지 마세요. 다음 액션이 생각나지 않으면 가지고 잇는 답변을 주세요",
+                "agent 에서 제공하는 가능한한 많은 정보를 보여주세요. 대답은 반드시 한국어로만 해주세요. 답변을 요약하지 않아도 됩니다. 너무 오래 생각하지 마세요. 다음 액션이 생각나지 않으면 에이전트가 제공한 답변을 주세요. web_search_tool은 결과를 사용자 질문과 관련이 없는 내용이 검색 될수 있으니 결과가 검색되면 꼭 답변을 작성해주세요.",
             ),                
             ("human", "{input}"),               
             ("placeholder", "{agent_scratchpad}"),
@@ -98,8 +105,8 @@ def request_answer( question) -> str:
         agent=agent,
         tools=tools,
         verbose=True,
-        max_iterations=30,
-        max_execution_time=20,
+        #max_iterations=30,
+        #max_execution_time=20,
         handle_parsing_errors=True,
     )
 
@@ -107,4 +114,5 @@ def request_answer( question) -> str:
     #result = agent.run(question)       
     result = agent_executor.invoke({"input": question})
     print(f"result::{result}")
-    return result
+#    return result
+    return result['output'] if isinstance(result, dict) else result

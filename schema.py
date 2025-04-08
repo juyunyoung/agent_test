@@ -22,18 +22,16 @@ class DBSearchManager:
     def __init__(self):
         # 초기화 상태 확인
         if not hasattr(self, '_initialized'):
-            self.credentials = service_account.Credentials.from_service_account_file(os.getenv("SERVICE_ACCOUNT_FILE"))
+            self.credentials = service_account.Credentials.from_service_account_file(
+                os.getenv("SERVICE_ACCOUNT_FILE")
+            )
             self.llm = AzureChatOpenAI(
                 api_key=os.getenv("AZURE_OPENAI_API_KEY_4O"),
                 api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
                 azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT_4O")
             )
-        # self.llm = ChatOpenAI(model='gpt-4o') 
-        #  self.llm = ChatAnthropic(model='claude-3-opus-20240229')
-
             self.client = bigquery.Client(credentials=self.credentials)
-            self._initialized = True    
-    
+            self._initialized = True
 
     @property
     def data(self):
@@ -55,16 +53,16 @@ class DBSearchManager:
                 credentials=self.credentials
             )
         return DBSearchManager._loader.load()
-    
-    
-    def get_search_result(self, question:str, markdown_converter:bool = True ) -> str:
+
+    def get_search_result(self, question: str, markdown_converter: bool = True) -> str:
+        # 기존 get_search_result 메서드 구현 유지
         chain = (
             {
                 "content": lambda docs: "\n\n".join(
                     [format_document(doc, PromptTemplate.from_template("{page_content}")) for doc in docs]
                 ),
-                
-            } | PromptTemplate.from_template(question+"의 정보를 검색할수 있는 쿼리를 작성해줘 query 의 내용만 리턴 해주세요. :\n\n{content} ")
+            } 
+            | PromptTemplate.from_template(question+"의 정보를 검색할 수 있는 쿼리를 작성해주세요. 쿼리 내용만 리턴해주세요:\n\n{content}")
             | self.llm
         )
         try:        
