@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from sql_examples import sql_examples
 import os
 import pandas as pd
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, FewShotChatMessagePromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, FewShotChatMessagePromptTemplate
 from langchain.chains.combine_documents import create_stuff_documents_chain
 class DBSearchManager:
     load_dotenv()
@@ -23,6 +23,7 @@ class DBSearchManager:
     
     def __init__(self):
         # 초기화 상태 확인
+        print("DBSearchManager.__init__")
         if not hasattr(self, '_initialized'):
             self.credentials = service_account.Credentials.from_service_account_file(os.getenv("SERVICE_ACCOUNT_FILE"))
             # self.llm = AzureChatOpenAI(
@@ -30,8 +31,8 @@ class DBSearchManager:
             #     api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
             #     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT_4O")
             # )
-            self.llm = ChatOpenAI(model='gpt-4o') 
-        #  self.llm = ChatAnthropic(model='claude-3-opus-20240229')
+            #self.llm = ChatOpenAI(model='gpt-4o') 
+            self.llm = ChatAnthropic(model='claude-3-opus-20240229')
 
             self.client = bigquery.Client(credentials=self.credentials)
             self._initialized = True    
@@ -39,14 +40,19 @@ class DBSearchManager:
 
     @property
     def data(self):
+        print("DBSearchManager.data")
         if not hasattr(self, '_data'):
-            data = self._load_data()
-            self._data = lambda data: "\n\n".join(
-                    [format_document(doc, PromptTemplate.from_template("{page_content}")) for doc in data]
-                )
+            load_data = self._load_data()
+            
+            content = lambda load_data: "\n\n".join(
+                    [format_document(doc, PromptTemplate.from_template("{page_content}")) for doc in load_data]
+                )            
+            self._data = content(load_data)
+            
         return self._data
 
     def _load_data(self):
+        print("DBSearchManager._load_data")
         if DBSearchManager._loader is None:
             query = """
             SELECT table_name, ddl 
@@ -63,7 +69,9 @@ class DBSearchManager:
         return DBSearchManager._loader.load()
     
     
-    def get_search_result(self, question:str, markdown_converter:bool = True ) -> str:
+    def get_search_result(self, question:str, markdown_converter:bool = True ):
+        print("DBSearchManager.get_search_result")
+        
         # chain = (
         #     {
         #         "content": lambda docs: "\n\n".join(
@@ -84,32 +92,35 @@ class DBSearchManager:
             example_prompt=example_prompt,
             examples=sql_examples,
         )
-        system_prompt_text = (
-            "당신은 SQL 쿼리문을 작성하는 전문가입니다"
-            "질문에 대한 답변을 SQL 쿼리문으로 작성해 주세요"
-            "정보가 충분하지 않을 경우 작성할수 없음 이라고 답변해 주세요 "
-            "쿼리만 리턴 해 주세요"
-            "\n\n"
-            "{context}"
+        print("system_prompt_text")
+        system_prompt = SystemMessagePromptTemplate.from_template(
+            f"""당신은 SQL 쿼리문을 작성하는 전문가입니다
+            아래의 Table schema를 바탕으로 사용자의 질문에 대한 SQL 쿼리문을 작성해 주세요            
+            정보가 충분하지 않을 경우 작성할수 없음 이라고 답변해 주세요 
+            쿼리만 리턴 해 주세요            
+            \n\n:
+            {self.data}"""
         )
-        #system_prompt = PromptTemplate.from_template(template=system_prompt_text)
+        
 
-
-        #system_prompt_str: str = system_prompt.format(context=content)
         #print(system_prompt_str)
         qa_prompt = ChatPromptTemplate.from_messages(
             [
-                ("system", system_prompt_text),
-                few_shot_prompt,
-                ("human", "{input}"),
+               system_prompt,
+               few_shot_prompt,
+               ("human", "{input}"),
             ]
         )
         #qa_prompt = qa_prompt.format(question=question)
-        chain = create_stuff_documents_chain(llm=self.llm, prompt=qa_prompt)
+        #chain = create_stuff_documents_chain(llm=self.llm, prompt=qa_prompt)
+        #chain = qa_prompt.format_messages({"input":question, "context":self.data})|self.llm
+        print("create_stuff_documents_chain")
+        chain = qa_prompt|self.llm
         
         try:        
-            #result = chain.invoke(self.data)        
-            result = chain.invoke(input=question,context=content(self.data))        
+            #result = chain.invoke(self.data)                    
+            print("question::",question)
+            result = chain.invoke({"input": question})
             print("result::", result)
 #            search_query = result.content   #antropic return
             search_query = result.content.split('```')[1].strip('sql')   #openAI return
