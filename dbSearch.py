@@ -71,17 +71,6 @@ class DBSearchManager:
     
     def get_search_result(self, question:str, markdown_converter:bool = True ):
         print("DBSearchManager.get_search_result")
-        
-        # chain = (
-        #     {
-        #         "content": lambda docs: "\n\n".join(
-        #             [format_document(doc, PromptTemplate.from_template("{page_content}")) for doc in docs]
-        #         ),
-                
-        #     } | PromptTemplate.from_template(question+"의 정보를 검색할수 있는 쿼리를 작성해줘 query 의 내용만 리턴 해주세요. :\n\n{content} ")
-        #     | self.llm
-        # )     
-        
         example_prompt = ChatPromptTemplate.from_messages(
             [
                 ("human", "{input}"),
@@ -91,39 +80,50 @@ class DBSearchManager:
         few_shot_prompt = FewShotChatMessagePromptTemplate(
             example_prompt=example_prompt,
             examples=sql_examples,
-        )
-        print("system_prompt_text")
-        system_prompt = SystemMessagePromptTemplate.from_template(
-            f"""당신은 SQL 쿼리문을 작성하는 전문가입니다
-            아래의 Table schema를 바탕으로 사용자의 질문에 대한 SQL 쿼리문을 작성해 주세요            
-            정보가 충분하지 않을 경우 작성할수 없음 이라고 답변해 주세요 
-            쿼리만 리턴 해 주세요            
-            \n\n:
-            {self.data}"""
-        )
+        )        
+        chain = (
+            {
+                "content": lambda docs: "\n\n".join(
+                    [format_document(doc, PromptTemplate.from_template("{page_content}")) for doc in docs]
+                ),
+                
+            } | PromptTemplate.from_template(question+"의 정보를 검색할수 있는 쿼리를 작성해줘 . 작성예는 다음과 같아. "+few_shot_prompt.+"\n query 의 내용만 리턴 해주세요. :\n\n{content} ")
+            | self.llm
+        )     
         
 
-        #print(system_prompt_str)
-        qa_prompt = ChatPromptTemplate.from_messages(
-            [
-               system_prompt,
-               few_shot_prompt,
-               ("human", "{input}"),
-            ]
-        )
+        # print("system_prompt_text")
+        # system_prompt = SystemMessagePromptTemplate.from_template(
+        #     f"""당신은 SQL 쿼리문을 작성하는 전문가입니다
+        #     아래의 Table schema를 바탕으로 사용자의 질문에 대한 SQL 쿼리문을 작성해 주세요            
+        #     정보가 충분하지 않을 경우 작성할수 없음 이라고 답변해 주세요 
+        #     쿼리만 리턴 해 주세요            
+        #     \n\n:
+        #     {self.data}"""
+        # )
+        
+
+        # #print(system_prompt_str)
+        # qa_prompt = ChatPromptTemplate.from_messages(
+        #     [
+        #        system_prompt,
+        #        few_shot_prompt,
+        #        ("human", "{input}"),
+        #     ]
+        # )
         #qa_prompt = qa_prompt.format(question=question)
         #chain = create_stuff_documents_chain(llm=self.llm, prompt=qa_prompt)
         #chain = qa_prompt.format_messages({"input":question, "context":self.data})|self.llm
-        print("create_stuff_documents_chain")
-        chain = qa_prompt|self.llm
+        # print("create_stuff_documents_chain")
+        # chain = qa_prompt|self.llm
         
         try:        
-            #result = chain.invoke(self.data)                    
+            result = chain.invoke(self.data)                    
             print("question::",question)
-            result = chain.invoke({"input": question})
+            #result = chain.invoke({"input": question})
             print("result::", result)
-#            search_query = result.content   #antropic return
-            search_query = result.content.split('```')[1].strip('sql')   #openAI return
+            search_query = result.content   #antropic return
+#            search_query = result.content.split('```')[1].strip('sql')   #openAI return
             print("search_query::", search_query)
             db_search_result = self.client.query(search_query).result().to_dataframe()
             print("db_search_result::", db_search_result)
