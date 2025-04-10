@@ -1,6 +1,6 @@
 sql_examples = [
     {
-        "input": "충청남도프로젝트1 의 프로젝트 기본 테이블에서 프로젝트 정보를 검색해 주세요", 
+        "input": "충청남도프로젝트1 의 프로젝트 기본 테이블에서 프로젝트 정보를 검색해 주세요.", 
         "answer": """
                   SELECT * 
                     FROM `corded-forge-433107-v9.PROJECTCONT.project_basic_info` 
@@ -52,9 +52,8 @@ sql_examples = [
                   FROM
                     `corded-forge-433107-v9.PROJECTCONT.project_basic_info` as pbi,
                   `corded-forge-433107-v9.PROJECTCONT.project_contract_info` as pci
-                  where
-                    pbi.project_code = pci.project_code
-                  and  pbi.project_name ="경상북도프로젝트2";
+                  WHERE pbi.project_code = pci.project_code
+                  AND pbi.project_name ="경상북도프로젝트2";
                 """
     },
 ]

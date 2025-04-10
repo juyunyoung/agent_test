@@ -11,15 +11,17 @@ from langchain.tools import tool
 from langchain.agents import AgentExecutor
 from langchain.agents import create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_anthropic import ChatAnthropic
 
 load_dotenv()
     
-llm = AzureChatOpenAI(
-    api_key = os.getenv("AZURE_OPENAI_API_KEY_4O"),  
-    api_version = os.getenv("AZURE_OPENAI_API_VERSION"),
-    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT_4O")
-)
-#llm = ChatOpenAI(model='gpt-4o') 
+# llm = AzureChatOpenAI(
+#     api_key = os.getenv("AZURE_OPENAI_API_KEY_4O"),  
+#     api_version = os.getenv("AZURE_OPENAI_API_VERSION"),
+#     azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT_4O")
+# )
+#llm = ChatAnthropic(model='claude-3-opus-20240229')
+llm = ChatOpenAI(model='gpt-4o') 
 #사용자가 입력한 질문에  대하여 프로젝트와 관련된 전체적인 정보를 검색 할수 있는 함수 
 def get_project_search( input_text:str ) -> str:
     """
@@ -28,18 +30,18 @@ def get_project_search( input_text:str ) -> str:
     """       
     project_search = ProjectSearchTool()        
     print(f"input_text::{input_text}")
-    db_search_result = project_search.get_project_search(question= input_text)        
+    db_search_result = project_search.get_project_search(input_text= input_text)        
     return  db_search_result
 
-#사용자가 입력한 질문을 바탕으로 메일을 작성한다."
-def get_web_search( input_text:str ) -> str:
+#뉴스, 기사 등 사용자가 입력한 질문을 바탕으로 web을 검색해야 할때 사용한다. 반드시 DB에서 검색한 프로젝트 정보를 바탕으로 검색을 수행한다.
+def get_news_search( input_text:str ) -> str:
     """
-    사용자의 질문에 대하여 프로젝트의 정보를 바탕으로 web 검색을 수행하는 함수
-    :param input_text:  사용자가 입력한 질문내용
+    뉴스, websearch 사용자의 질문에 대하여 프로젝트의 정보를 바탕으로 web 검색을 수행하는 함수
+    :param input_text:  DB에서 검색한 프로젝트 정보
 
     """
     web_search_manager = WebSearchTool()        
-    db_search_result = web_search_manager.get_web_search(input_text= input_text)        
+    db_search_result = web_search_manager.get_news_search(input_text= input_text)        
     return  db_search_result
 
 #사용자가 입력한 질문을 바탕으로  존재하는 주소의 날씨 정보를 검색합니다.
@@ -50,6 +52,16 @@ def get_weather_search( input_text:str ) -> str:
     """
     weatherTool = WeatherTool()        
     db_search_result = weatherTool.get_weather_search(input_text= input_text)        
+    return  db_search_result
+
+#사용자 프로젝트명만 입력한 경우 web검색등 프로젝트 정보를 검색해야 할때 사용한다.
+def get_project_info_search( input_text:str ) -> str:
+    """
+    사용자 프로젝트명만 입력한 경우 web검색등 다음 작업을 진행을 위해 프로젝트 정보를 검색해야 할때 사용한다.
+    :param input_text: 사용자가 입력한 프로젝트명 
+    """
+    project_search = WebSearchTool()            
+    db_search_result = project_search.get_project_info_search(input_text= input_text)        
     return  db_search_result
 
 def request_answer( question) -> str:
@@ -65,17 +77,24 @@ def request_answer( question) -> str:
         func=get_project_search,
         description="사용자가 입력한 질문을 param으로 사용. 질문에 대하여 db를 검색하여 프로젝트 정보를 검색 할수 있는 툴"
     )
-    web_search_tool = Tool(
+    news_search_tool = Tool(
+        name="get_news_search",
+        title="news search base on Project Information",
+        func=get_news_search,
+        description=" DB에서 검색한 프로젝트 정보를 바탕으로 뉴스, 기사 등 web 에서 검색. 프로젝트 리턴값은  타이틀, URL 링크, 요약 정보를 제공한다. 반드시 DB에서 검색한 프로젝트 정보를 바탕으로 검색을 수행한다. "
+    )
+    address_add_api = Tool(
         name="get_web_search",
         title="WEB search base on Project Information",
-        func=get_web_search,
-        description="사용자가 입력한 질문을 param으로 사용. 질문에 대하여 프로젝트 정보를 바탕으로 web에서 검색. 프로젝트 리턴값은  타이틀, URL 링크, 요약 정보를 제공한다."
+        func=get_project_info_search,
+        description="사용자 프로젝트명만 입력한 경우 web검색등 다음 작업을 진행을 위해 프로젝트 정보를 검색해야 할때 사용한다. "
     )
 
 
     tools=[weather_tool,    # 날씨 검색 도구 추가     
-           web_search_tool,    # 날씨 검색 도구 추가
+           news_search_tool,    # 날씨 검색 도구 추가
            project_search_tool, # 프로젝트 검색 도구 추가  
+           #project_info_search,
            ]
     #에이전트 초기화
     # agent = initialize_agent(
@@ -109,10 +128,9 @@ def request_answer( question) -> str:
         #max_execution_time=20,
         handle_parsing_errors=True,
     )
-
-
     #result = agent.run(question)       
     result = agent_executor.invoke({"input": question})
     print(f"result::{result}")
-#    return result
+
+    #return result['output']['text'] if isinstance(result, dict) else result
     return result['output'] if isinstance(result, dict) else result

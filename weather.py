@@ -6,6 +6,7 @@ import os
 import requests
 from datetime import datetime
 import arrow
+from langchain_anthropic import ChatAnthropic
 
 class WeatherTool:
     load_dotenv()
@@ -24,12 +25,13 @@ class WeatherTool:
         return cls.instance
     
     def __init__(self):
-        self.llm = AzureChatOpenAI(
-                api_key = os.getenv("AZURE_OPENAI_API_KEY_4O"),  
-                api_version = os.getenv("AZURE_OPENAI_API_VERSION"),
-                azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT_4O")
-            )
-        #self.llm = ChatOpenAI(model='gpt-4o') 
+        # self.llm = AzureChatOpenAI(
+        #         api_key = os.getenv("AZURE_OPENAI_API_KEY_4O"),  
+        #         api_version = os.getenv("AZURE_OPENAI_API_VERSION"),
+        #         azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT_4O")
+        #     )
+        self.llm = ChatOpenAI(model='gpt-4o') 
+        #self.llm = ChatAnthropic(model='claude-3-opus-20240229')
     def get_weather_search(self, input_text: str) -> str:
         '''
         지역의 날씨를 검색하여 결과를 리턴하는 함수

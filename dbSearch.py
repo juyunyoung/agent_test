@@ -23,7 +23,6 @@ class DBSearchManager:
     
     def __init__(self):
         # 초기화 상태 확인
-        print("DBSearchManager.__init__")
         if not hasattr(self, '_initialized'):
             self.credentials = service_account.Credentials.from_service_account_file(os.getenv("SERVICE_ACCOUNT_FILE"))
             # self.llm = AzureChatOpenAI(
@@ -31,28 +30,26 @@ class DBSearchManager:
             #     api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
             #     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT_4O")
             # )
-            #self.llm = ChatOpenAI(model='gpt-4o') 
-            self.llm = ChatAnthropic(model='claude-3-opus-20240229')
+            self.llm = ChatOpenAI(model='gpt-4o') 
+            #self.llm = ChatAnthropic(model='claude-3-opus-20240229')
 
             self.client = bigquery.Client(credentials=self.credentials)
             self._initialized = True    
     
 
     @property
-    def data(self):
-        print("DBSearchManager.data")
+    def data(self):        
         if not hasattr(self, '_data'):
-            load_data = self._load_data()
-            
-            content = lambda load_data: "\n\n".join(
-                    [format_document(doc, PromptTemplate.from_template("{page_content}")) for doc in load_data]
-                )            
-            self._data = content(load_data)
+            #load_data = self._load_data()
+            self._data = self._load_data()
+            # content = lambda load_data: "\n\n".join(
+            #         [format_document(doc, PromptTemplate.from_template("{page_content}")) for doc in load_data]
+            #     )            
+            # self._data = content(load_data)
             
         return self._data
 
-    def _load_data(self):
-        print("DBSearchManager._load_data")
+    def _load_data(self):        
         if DBSearchManager._loader is None:
             query = """
             SELECT table_name, ddl 
@@ -69,25 +66,26 @@ class DBSearchManager:
         return DBSearchManager._loader.load()
     
     
-    def get_search_result(self, question:str, markdown_converter:bool = True ):
-        print("DBSearchManager.get_search_result")
-        example_prompt = ChatPromptTemplate.from_messages(
-            [
-                ("human", "{input}"),
-                ("ai", "{answer}"),
-            ]
-        )
-        few_shot_prompt = FewShotChatMessagePromptTemplate(
-            example_prompt=example_prompt,
-            examples=sql_examples,
-        )        
+    def get_search_result(self, question:str, markdown_converter:bool = True ):        
+        few_shot_examples = f"""
+            Few-Shot Examples:
+            1. Question: {sql_examples[0]['input']}
+            SQL Query: {sql_examples[0]['answer']}
+            2. Question: {sql_examples[1]['input']}
+            SQL Query: {sql_examples[1]['answer']}
+            3. Question: {sql_examples[2]['input']}
+            SQL Query: {sql_examples[2]['answer']}
+            4. Question: {sql_examples[3]['input']}
+            SQL Query: {sql_examples[3]['answer']}            
+            
+            """
         chain = (
             {
                 "content": lambda docs: "\n\n".join(
                     [format_document(doc, PromptTemplate.from_template("{page_content}")) for doc in docs]
                 ),
                 
-            } | PromptTemplate.from_template(question+"의 정보를 검색할수 있는 쿼리를 작성해줘 . 작성예는 다음과 같아. "+few_shot_prompt.+"\n query 의 내용만 리턴 해주세요. :\n\n{content} ")
+            } | PromptTemplate.from_template(question+"의 정보를 검색할수 있는 쿼리를 작성해줘 . 작성예는 다음과 같아. \n\n"+few_shot_examples +"\n\n query 의 내용만 리턴 해주세요. :\n\n{content} ")
             | self.llm
         )     
         
@@ -118,12 +116,12 @@ class DBSearchManager:
         # chain = qa_prompt|self.llm
         
         try:        
+            
             result = chain.invoke(self.data)                    
-            print("question::",question)
-            #result = chain.invoke({"input": question})
-            print("result::", result)
-            search_query = result.content   #antropic return
-#            search_query = result.content.split('```')[1].strip('sql')   #openAI return
+            
+            #result = chain.invoke({"input": question})            
+            #search_query = result.content   #antropic return
+            search_query = result.content.split('```')[1].strip('sql')   #openAI return
             print("search_query::", search_query)
             db_search_result = self.client.query(search_query).result().to_dataframe()
             print("db_search_result::", db_search_result)
